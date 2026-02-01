@@ -31,7 +31,7 @@ export default function TradingDashboard() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [totpInput, setTotpInput] = useState('');
 
-  // Connect to Angel One API
+  // Connect to Angel One API via server-side route
   const connectToAngelOne = useCallback(async () => {
     setAuthError(null);
     
@@ -46,21 +46,30 @@ export default function TradingDashboard() {
     }
 
     try {
-      angelOneAPI.configure({
-        ...angelOneConfig,
-        totp: totpInput,
+      const response = await fetch('/api/angel-one/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: angelOneConfig.apiKey,
+          username: angelOneConfig.username,
+          password: angelOneConfig.password,
+          totp: totpInput,
+        }),
       });
+
+      const data = await response.json();
       
-      const session = await angelOneAPI.generateSession();
-      
-      if (session) {
+      if (data.status === 'OK' && data.data) {
+        // Store tokens in session storage (in production, use more secure storage)
+        sessionStorage.setItem('angelOneToken', data.data.jwtToken);
+        sessionStorage.setItem('angelOneRefresh', data.data.refreshToken);
         setIsAuthenticated(true);
         setUseLiveData(true);
       } else {
-        setAuthError('Failed to authenticate. Check your credentials and try again.');
+        setAuthError(data.message || data.err || 'Authentication failed');
       }
     } catch (error: any) {
-      setAuthError(error.message || 'Authentication failed');
+      setAuthError(error.message || 'Failed to connect to Angel One');
     }
   }, [totpInput]);
 
