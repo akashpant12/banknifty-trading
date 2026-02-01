@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BankNifty Trading Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-emerald-400">🇮🇳 BankNifty Trading Agent</h1>
+            <p class="text-gray-400 mt-2">Your Angel One credentials are saved!</p>
+        </header>
+        
+        <div class="bg-gray-800 rounded-xl p-8 mb-8">
+            <h2 class="text-xl font-bold mb-4 text-yellow-400">Saved Credentials</h2>
+            <div class="grid md:grid-cols-3 gap-4">
+                <div><label class="text-gray-400 text-sm">API Key</label><div class="bg-gray-700 rounded px-4 py-2 font-mono">Wb15v0Wq</div></div>
+                <div><label class="text-gray-400 text-sm">Client ID</label><div class="bg-gray-700 rounded px-4 py-2 font-mono">A490107</div></div>
+                <div><label class="text-gray-400 text-sm">Password</label><div class="bg-gray-700 rounded px-4 py-2 font-mono">1714</div></div>
+            </div>
+        </div>
+
+        <div class="bg-gray-800 rounded-xl p-8">
+            <h2 class="text-xl font-bold mb-4">How to Connect Angel One</h2>
+            <ol class="list-decimal list-inside space-y-3 text-gray-300">
+                <li>Go to <strong>https://vercel.com</strong> and sign up with GitHub</li>
+                <li>Click <strong>"Add New Project"</strong></li>
+                <li>Select your repository: <strong>akashpant12/banknifty-trading</strong></li>
+                <li>Click <strong>"Deploy"</strong></li>
+                <li>Wait 1-2 minutes for deployment</li>
+                <li>Open the URL Vercel gives you</li>
+                <li>Go to <code>/trading</code> page</li>
+                <li>Enter your <strong>6-digit TOTP</strong> from Google Authenticator</li>
+                <li>Click <strong>"Connect Angel One"</strong></li>
+            </ol>
+        </div>
+
+        <div class="bg-gray-800 rounded-xl p-8 mt-8">
+            <h2 class="text-xl font-bold mb-4">Deploy Now Button</h2>
+            <a href="https://vercel.com/new" class="inline-block px-8 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-lg font-bold text-lg">
+                Deploy to Vercel →
+            </a>
+        </div>
+
+        <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-6 mt-8">
+            <h3 class="font-bold text-yellow-400 mb-2">⚠️ Important</h3>
+            <p class="text-gray-300">Your credentials are saved in <code>src/lib/trading/config.ts</code>. When you deploy to Vercel, these credentials will be used to connect to Angel One API.</p>
+        </div>
+    </div>
+</body>
+</html>
