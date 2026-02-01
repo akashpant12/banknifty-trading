@@ -40,6 +40,11 @@ export class AngelOneAPI {
       throw new Error('API credentials not configured');
     }
 
+    console.log('Attempting Angel One login with:', {
+      apiKey: this.config.apiKey.substring(0, 4) + '...',
+      username: this.config.username,
+    });
+
     try {
       const response = await fetch(`${this.baseUrl}/gtt/v1/login`, {
         method: 'POST',
@@ -55,6 +60,7 @@ export class AngelOneAPI {
       });
 
       const data = await response.json();
+      console.log('Angel One response:', JSON.stringify(data));
       
       if (data.status === 'OK' && data.data) {
         this.session = {
@@ -63,13 +69,15 @@ export class AngelOneAPI {
           feedToken: data.data.feedToken,
           userProfile: data.data.profile,
         };
+        console.log('Angel One login successful!');
         return this.session;
       }
       
-      throw new Error(data.message || 'Login failed');
+      console.error('Angel One login failed:', data);
+      throw new Error(data.message || data.err || 'Login failed. Check your TOTP code.');
     } catch (error) {
       console.error('Angel One login error:', error);
-      return null;
+      throw error;
     }
   }
 
