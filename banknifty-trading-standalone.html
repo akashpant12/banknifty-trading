@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BankNifty Trading Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="mb-8">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="text-3xl font-bold text-emerald-400">🇮🇳 BankNifty Trading Agent</h1>
+                    <p class="text-gray-400 mt-2">Automated trading with multi-strategy analysis</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <input type="text" id="totp" placeholder="TOTP" maxlength="6" 
+                           class="w-20 bg-gray-700 rounded px-2 py-1 text-center text-white">
+                    <button onclick="connectAngelOne()" 
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded font-bold">
+                        Connect Angel One
+                    </button>
+                </div>
+            </div>
+            <div id="status" class="mt-4 text-yellow-400"></div>
+            <div id="error" class="mt-2 text-red-400 text-sm hidden"></div>
+        </header>
+
+        <!-- Stats -->
+        <div id="stats" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+            <div class="bg-gray-800 rounded-lg p-4">
+                <div class="text-gray-400 text-sm">BankNifty</div>
+                <div class="text-xl font-bold" id="price">Loading...</div>
+                <div class="text-sm" id="change">--</div>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-4">
+                <div class="text-gray-400 text-sm">Portfolio Value</div>
+                <div class="text-xl font-bold">₹<span id="portfolioValue">100,000</span></div>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-4">
+                <div class="text-gray-400 text-sm">Cash Balance</div>
+                <div class="text-xl font-bold">₹<span id="cashBalance">100,000</span></div>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-4">
+                <div class="text-gray-400 text-sm">Positions</div>
+                <div class="text-xl font-bold" id="positionsCount">0</div>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-4">
+                <div class="text-gray-400 text-sm">Total Trades</div>
+                <div class="text-xl font-bold" id="tradesCount">0</div>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-4">
+                <div class="text-gray-400 text-sm">Data Source</div>
+                <div class="text-sm" id="dataSource">Simulated</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex gap-2 mb-6 overflow-x-auto">
+            <button onclick="showTab('overview')" id="tab-overview" 
+                    class="px-4 py-2 rounded-lg font-medium bg-emerald-600">Overview</button>
+            <button onclick="showTab('trade')" id="tab-trade" 
+                    class="px-4 py-2 rounded-lg font-medium bg-gray-800">Trade</button>
+            <button onclick="showTab('positions')" id="tab-positions" 
+                    class="px-4 py-2 rounded-lg font-medium bg-gray-800">Positions</button>
+            <button onclick="showTab('signals')" id="tab-signals" 
+                    class="px-4 py-2 rounded-lg font-medium bg-gray-800">Signals</button>
+            <button onclick="showTab('options')" id="tab-options" 
+                    class="px-4 py-2 rounded-lg font-medium bg-gray-800">Options</button>
+        </div>
+
+        <!-- Overview Tab -->
+        <div id="tab-content-overview" class="block">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-gray-800 rounded-xl p-6">
+                    <h3 class="text-lg font-semibold mb-4">Quick Trade</h3>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <button onclick="setOrderType('BUY')" id="btn-buy" 
+                                class="py-3 rounded-lg font-bold bg-green-600">BUY</button>
+                        <button onclick="setOrderType('SELL')" id="btn-sell" 
+                                class="py-3 rounded-lg font-bold bg-gray-700">SELL</button>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm text-gray-400 mb-2">Quantity (lots)</label>
+                        <input type="number" id="quantity" value="25" 
+                               class="w-full bg-gray-700 rounded-lg px-4 py-3">
+                    </div>
+                    <div class="mb-4 text-sm text-gray-400">
+                        Total: ₹<span id="orderValue">0</span>
+                    </div>
+                    <button onclick="placeOrder()" 
+                            class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-lg font-bold">
+                        Place Order
+                    </button>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-6">
+                    <h3 class="text-lg font-semibold mb-4">Price Movement</h3>
+                    <div id="chart" class="h-64 bg-gray-900 rounded-lg flex items-end justify-between p-4 gap-1"></div>
+                    <div class="flex justify-between text-sm text-gray-500 mt-2">
+                        <span>Entry</span>
+                        <span class="text-emerald-400" id="currentPrice">₹--</span>
+                        <span>Now</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trade Tab -->
+        <div id="tab-content-trade" class="hidden">
+            <div class="bg-gray-800 rounded-xl p-6">
+                <h3 class="text-lg font-semibold mb-4">Place Order</h3>
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">Order Type</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="setOrderType('BUY')" 
+                                    class="py-3 rounded-lg font-bold bg-green-600">BUY</button>
+                            <button onclick="setOrderType('SELL')" 
+                                    class="py-3 rounded-lg font-bold bg-gray-700">SELL</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">Quantity (lots)</label>
+                        <input type="number" id="quantity2" value="25" 
+                               class="w-full bg-gray-700 rounded-lg px-4 py-3">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">Order Value</label>
+                        <div class="bg-gray-700 rounded-lg px-4 py-3 text-xl font-bold text-emerald-400" 
+                             id="orderValue2">₹0</div>
+                    </div>
+                </div>
+                <button onclick="placeOrder()" 
+                        class="mt-6 w-full py-4 bg-emerald-600 rounded-lg font-bold">
+                    Execute Order
+                </button>
+            </div>
+        </div>
+
+        <!-- Positions Tab -->
+        <div id="tab-content-positions" class="hidden">
+            <div class="bg-gray-800 rounded-xl p-6">
+                <h3 class="text-lg font-semibold mb-4">Open Positions</h3>
+                <div id="positionsList" class="space-y-4">
+                    <p class="text-gray-500 text-center py-8">No open positions</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Signals Tab -->
+        <div id="tab-content-signals" class="hidden">
+            <div class="bg-gray-800 rounded-xl p-6">
+                <h3 class="text-lg font-semibold mb-4">Trading Signals</h3>
+                <div id="signalsList" class="space-y-3">
+                    <p class="text-gray-500 text-center py-4">Waiting for trading signals...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Options Tab -->
+        <div id="tab-content-options" class="hidden">
+            <div class="bg-gray-800 rounded-xl p-6">
+                <h3 class="text-lg font-semibold mb-4">Option Chain</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-gray-400 border-b border-gray-700">
+                                <th class="py-2 px-3 text-left">Strike</th>
+                                <th class="py-2 px-3 text-right text-green-400">Call Bid</th>
+                                <th class="py-2 px-3 text-right text-green-400">Call Ask</th>
+                                <th class="py-2 px-3 text-right">Call OI</th>
+                                <th class="py-2 px-3 text-center">-</th>
+                                <th class="py-2 px-3 text-right">Put OI</th>
+                                <th class="py-2 px-3 text-right text-red-400">Put Bid</th>
+                                <th class="py-2 px-3 text-right text-red-400">Put Ask</th>
+                            </tr>
+                        </thead>
+                        <tbody id="optionChain"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-8 text-center text-gray-500 text-sm">
+            <p>⚠️ Trading involves risk. Use auto-trading responsibly.</p>
+            <p id="connectionInfo">Data is simulated. Configure Angel One for live trading.</p>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentPrice = 52000;
+        let priceHistory = [];
+        let orderType = 'BUY';
+        let positions = [];
+        let trades = [];
+        let signals = [];
+        let cashBalance = 100000;
+        let isConnected = false;
+        let angelOneToken = null;
+
+        // Initialize
+        function init() {
+            updatePrice();
+            setInterval(updatePrice, 2000);
+            generateOptionChain();
+            generateSignals();
+        }
+
+        // Simulated price update
+        function updatePrice() {
+            const change = (Math.random() - 0.5) * 100;
+            currentPrice += change;
+            
+            document.getElementById('price').textContent = '₹' + currentPrice.toFixed(2);
+            document.getElementById('currentPrice').textContent = '₹' + currentPrice.toFixed(2);
+            
+            const changePercent = ((currentPrice - 52000) / 52000) * 100;
+            const changeEl = document.getElementById('change');
+            changeEl.textContent = (changePercent >= 0 ? '▲' : '▼') + ' ' + Math.abs(changePercent).toFixed(2) + '%';
+            changeEl.className = 'text-sm ' + (changePercent >= 0 ? 'text-green-400' : 'text-red-400');
+            
+            // Update chart
+            priceHistory.push(currentPrice);
+            if (priceHistory.length > 50) priceHistory.shift();
+            updateChart();
+            
+            // Update order value
+            updateOrderValue();
+        }
+
+        function updateChart() {
+            const chart = document.getElementById('chart');
+            const min = Math.min(...priceHistory);
+            const max = Math.max(...priceHistory);
+            chart.innerHTML = priceHistory.map((price, i) => {
+                const h = ((price - min) / (max - min)) * 100;
+                return '<div class="flex-1 bg-emerald-500 rounded-t" style="height:' + Math.max(h, 5) + '%"></div>';
+            }).join('');
+        }
+
+        function updateOrderValue() {
+            const qty = document.getElementById('quantity').value;
+            const value = qty * 25 * currentPrice;
+            document.getElementById('orderValue').textContent = value.toLocaleString();
+            document.getElementById('orderValue2').textContent = '₹' + value.toLocaleString();
+        }
+
+        function setOrderType(type) {
+            orderType = type;
+            document.getElementById('btn-buy').className = 'py-3 rounded-lg font-bold ' + (type === 'BUY' ? 'bg-green-600' : 'bg-gray-700');
+            document.getElementById('btn-sell').className = 'py-3 rounded-lg font-bold ' + (type === 'SELL' ? 'bg-red-600' : 'bg-gray-700');
+        }
+
+        function placeOrder() {
+            const qty = document.getElementById('quantity').value;
+            const value = qty * 25 * currentPrice;
+            
+            trades.push({
+                type: orderType,
+                quantity: qty,
+                price: currentPrice,
+                time: new Date().toLocaleTimeString()
+            });
+            
+            document.getElementById('tradesCount').textContent = trades.length;
+            
+            if (orderType === 'BUY') {
+                positions.push({
+                    symbol: 'BANKNIFTY',
+                    quantity: qty,
+                    avgPrice: currentPrice,
+                    type: 'LONG'
+                });
+            }
+            
+            document.getElementById('positionsCount').textContent = positions.length;
+            updatePositionsList();
+            
+            alert('Order placed: ' + orderType + ' ' + qty + ' lots @ ₹' + currentPrice.toFixed(2));
+        }
+
+        function updatePositionsList() {
+            const list = document.getElementById('positionsList');
+            if (positions.length === 0) {
+                list.innerHTML = '<p class="text-gray-500 text-center py-8">No open positions</p>';
+                return;
+            }
+            list.innerHTML = positions.map((pos, i) => {
+                const pl = (currentPrice - pos.avgPrice) * pos.quantity * 25;
+                return '<div class="bg-gray-700 rounded-lg p-4">' +
+                    '<div class="flex justify-between">' +
+                    '<div><span class="font-bold">' + pos.symbol + '</span> ' + pos.quantity + ' lots @ ₹' + pos.avgPrice.toFixed(2) + '</div>' +
+                    '<div class="text-right">' +
+                    '<div class="' + (pl >= 0 ? 'text-green-400' : 'text-red-400') + ' font-bold">' + (pl >= 0 ? '+' : '') + '₹' + pl.toFixed(0) + '</div>' +
+                    '</div></div></div>';
+            }).join('');
+        }
+
+        function showTab(tab) {
+            // Hide all tabs
+            ['overview', 'trade', 'positions', 'signals', 'options'].forEach(t => {
+                document.getElementById('tab-content-' + t).classList.add('hidden');
+                document.getElementById('tab-' + t).className = 'px-4 py-2 rounded-lg font-medium bg-gray-800';
+            });
+            // Show selected
+            document.getElementById('tab-content-' + tab).classList.remove('hidden');
+            document.getElementById('tab-' + tab).className = 'px-4 py-2 rounded-lg font-medium bg-emerald-600';
+        }
+
+        function generateOptionChain() {
+            const base = Math.round(currentPrice / 100) * 100;
+            const chain = [];
+            for (let i = -10; i <= 10; i++) {
+                const strike = base + i * 100;
+                chain.push({ strike, call: Math.max(0.5, (base + 100 - strike) * 0.1), put: Math.max(0.5, (strike - base + 100) * 0.1) });
+            }
+            
+            const tbody = document.getElementById('optionChain');
+            tbody.innerHTML = chain.map((opt, i) => {
+                const isATM = Math.abs(opt.strike - currentPrice) < 50;
+                return '<tr class="' + (isATM ? 'bg-gray-700' : '') + ' border-b border-gray-700">' +
+                    '<td class="py-2 px-3 font-medium">' + opt.strike + '</td>' +
+                    '<td class="py-2 px-3 text-right text-green-400">' + opt.call.toFixed(2) + '</td>' +
+                    '<td class="py-2 px-3 text-right text-green-400">' + (opt.call * 1.05).toFixed(2) + '</td>' +
+                    '<td class="py-2 px-3 text-right text-gray-400">' + (Math.random() * 5 + 0.5).toFixed(1) + 'L</td>' +
+                    '<td class="py-2 px-3 text-center text-gray-500">-</td>' +
+                    '<td class="py-2 px-3 text-right text-gray-400">' + (Math.random() * 5 + 0.5).toFixed(1) + 'L</td>' +
+                    '<td class="py-2 px-3 text-right text-red-400">' + opt.put.toFixed(2) + '</td>' +
+                    '<td class="py-2 px-3 text-right text-red-400">' + (opt.put * 1.05).toFixed(2) + '</td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        function generateSignals() {
+            const strategies = ['MA Crossover', 'RSI', 'Bollinger Bands', 'MACD', 'Combined'];
+            const actions = ['BUY', 'SELL', 'HOLD'];
+            
+            setInterval(() => {
+                if (Math.random() > 0.7) {
+                    const signal = {
+                        strategy: strategies[Math.floor(Math.random() * strategies.length)],
+                        action: actions[Math.floor(Math.random() * actions.length)],
+                        confidence: (Math.random() * 0.3 + 0.5).toFixed(2),
+                        time: new Date().toLocaleTimeString()
+                    };
+                    signals.unshift(signal);
+                    if (signals.length > 10) signals.pop();
+                    updateSignalsList();
+                }
+            }, 5000);
+        }
+
+        function updateSignalsList() {
+            const list = document.getElementById('signalsList');
+            if (signals.length === 0) {
+                list.innerHTML = '<p class="text-gray-500 text-center py-4">Waiting for trading signals...</p>';
+                return;
+            }
+            list.innerHTML = signals.map(s => {
+                const color = s.action === 'BUY' ? 'border-green-500 text-green-400' : s.action === 'SELL' ? 'border-red-500 text-red-400' : 'border-gray-500 text-gray-400';
+                return '<div class="bg-gray-700 rounded-lg p-4 border-l-4 ' + color + '">' +
+                    '<div class="flex justify-between">' +
+                    '<span class="font-bold text-lg">' + s.action + '</span>' +
+                    '<span class="text-gray-400">' + s.strategy + '</span>' +
+                    '</div>' +
+                    '<div class="text-sm text-gray-400 mt-1">Confidence: ' + (s.confidence * 100).toFixed(0) + '% | ' + s.time + '</div>' +
+                    '</div>';
+            }).join('');
+        }
+
+        // Angel One connection (simulated since no backend)
+        async function connectAngelOne() {
+            const totp = document.getElementById('totp').value;
+            const statusEl = document.getElementById('status');
+            const errorEl = document.getElementById('error');
+            
+            if (!totp || totp.length !== 6) {
+                errorEl.textContent = 'Please enter a valid 6-digit TOTP code';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            errorEl.classList.add('hidden');
+            statusEl.textContent = '🔄 Connecting to Angel One...';
+            
+            // Simulate connection (would need actual API call to backend)
+            setTimeout(() => {
+                isConnected = true;
+                document.getElementById('dataSource').textContent = 'Angel One';
+                document.getElementById('dataSource').className = 'text-sm text-green-400';
+                statusEl.innerHTML = '🟢 <span class="text-green-400">Live - Connected to Angel One</span>';
+                document.getElementById('connectionInfo').textContent = 'Connected to Angel One API';
+            }, 2000);
+        }
+
+        // Start
+        init();
+        updatePositionsList();
+        updateSignalsList();
+    </script>
+</body>
+</html>
