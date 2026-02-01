@@ -29,6 +29,7 @@ export default function TradingDashboard() {
   const [useLiveData, setUseLiveData] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [totpInput, setTotpInput] = useState('');
 
   // Connect to Angel One API
   const connectToAngelOne = useCallback(async () => {
@@ -39,20 +40,29 @@ export default function TradingDashboard() {
       return;
     }
 
+    if (!totpInput || totpInput.length !== 6) {
+      setAuthError('Please enter a valid 6-digit TOTP code from your authenticator app');
+      return;
+    }
+
     try {
-      angelOneAPI.configure(angelOneConfig);
+      angelOneAPI.configure({
+        ...angelOneConfig,
+        totp: totpInput,
+      });
+      
       const session = await angelOneAPI.generateSession();
       
       if (session) {
         setIsAuthenticated(true);
         setUseLiveData(true);
       } else {
-        setAuthError('Failed to authenticate with Angel One. Check your credentials.');
+        setAuthError('Failed to authenticate. Check your credentials and try again.');
       }
     } catch (error: any) {
       setAuthError(error.message || 'Authentication failed');
     }
-  }, []);
+  }, [totpInput]);
 
   // Disconnect from Angel One
   const disconnectFromAngelOne = useCallback(async () => {
@@ -183,11 +193,22 @@ export default function TradingDashboard() {
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 bg-yellow-500 rounded-full"></span>
                 <span className="text-yellow-400 text-sm">🟡 Demo Mode</span>
+                
+                {/* TOTP Input */}
+                <input
+                  type="text"
+                  value={totpInput}
+                  onChange={(e) => setTotpInput(e.target.value)}
+                  placeholder="TOTP"
+                  maxLength={6}
+                  className="w-20 bg-gray-700 rounded px-2 py-1 text-center text-white text-sm"
+                />
+                
                 <button
                   onClick={connectToAngelOne}
                   className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm"
                 >
-                  Connect Angel One
+                  Connect
                 </button>
               </div>
             )}
