@@ -17,6 +17,9 @@ export const angelOneConfig = {
   // TOTP from authenticator app (Google Auth/Authy)
   totp: '530971', // 6-digit code from Google Authenticator
   
+  // Toggle between live and simulated data
+  useLiveData: false, // Set to true when credentials are configured
+  
   // Toggle between live and paper trading
   usePaperTrading: true,
 };

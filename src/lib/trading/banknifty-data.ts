@@ -1,10 +1,19 @@
-// BankNifty Data Service - Real-time market data simulation
+// BankNifty Data Service - Real-time market data
+// Integrates with Angel One SmartAPI for live data
 
 import { BankNiftyQuote, OptionChain } from './types';
+import { angelOneConfig } from './config';
+import { AngelOneAPI } from './angel-one-api';
 
-// Simulated market data for demonstration
-// In production, integrate with actual broker APIs (Zerodha, Upstox, etc.)
+// Create a shared API instance
+const angelOneAPI = new AngelOneAPI({
+  apiKey: angelOneConfig.apiKey,
+  username: angelOneConfig.username,
+  password: angelOneConfig.password,
+  totp: angelOneConfig.totp,
+});
 
+// Simulated market data for demonstration when live data is disabled
 const BANK_NIFTY_BASE_PRICE = 52000;
 
 function generateRandomPrice(base: number, volatility: number = 0.02): number {
@@ -12,7 +21,28 @@ function generateRandomPrice(base: number, volatility: number = 0.02): number {
   return Number((base + change).toFixed(2));
 }
 
-export function getBankNiftyQuote(): BankNiftyQuote {
+export async function getBankNiftyQuote(): Promise<BankNiftyQuote> {
+  // Check if live data is enabled and credentials are configured
+  if (angelOneConfig.useLiveData && 
+      angelOneConfig.username !== 'YOUR_CLIENT_ID' && 
+      angelOneConfig.password !== 'YOUR_PASSWORD') {
+    
+    try {
+      // Try to authenticate and get live quote
+      await angelOneAPI.generateSession();
+      const liveQuote = await angelOneAPI.getQuote('BANKNIFTY');
+      
+      if (liveQuote) {
+        console.log('Using live BankNifty data');
+        return liveQuote;
+      }
+    } catch (error) {
+      console.warn('Failed to get live data, falling back to simulated data:', error);
+    }
+  }
+  
+  // Fallback to simulated data
+  console.log('Using simulated BankNifty data (set useLiveData: true in config for live data)');
   const price = generateRandomPrice(BANK_NIFTY_BASE_PRICE, 0.015);
   const prevClose = BANK_NIFTY_BASE_PRICE;
   const change = price - prevClose;
@@ -34,8 +64,37 @@ export function getBankNiftyQuote(): BankNiftyQuote {
   };
 }
 
-export function getOptionChain(atmStrike?: number): OptionChain[] {
-  const quote = getBankNiftyQuote();
+export async function getOptionChain(atmStrike?: number): Promise<OptionChain[]> {
+  // Try to get live option chain if enabled
+  if (angelOneConfig.useLiveData && 
+      angelOneConfig.username !== 'YOUR_CLIENT_ID') {
+    try {
+      const liveChain = await angelOneAPI.getOptionChain(atmStrike);
+      if (liveChain && liveChain.length > 0) {
+        console.log('Using live option chain data');
+        return liveChain.map((item: any) => ({
+          strikePrice: item.strikeprice,
+          call: {
+            bid: parseFloat(item.callprice) || 0,
+            ask: parseFloat(item.callprice) * 1.02 || 0,
+            volume: parseInt(item.callvolume) || 0,
+            openInterest: parseInt(item.calloi) || 0,
+          },
+          put: {
+            bid: parseFloat(item.putprice) || 0,
+            ask: parseFloat(item.putprice) * 1.02 || 0,
+            volume: parseInt(item.putvolume) || 0,
+            openInterest: parseInt(item.putoi) || 0,
+          },
+        }));
+      }
+    } catch (error) {
+      console.warn('Failed to get live option chain, using simulated data:', error);
+    }
+  }
+  
+  // Fallback to simulated option chain
+  const quote = await getBankNiftyQuote();
   const basePrice = atmStrike || Math.round(quote.lastPrice / 100) * 100;
   const strikes = 10;
 
