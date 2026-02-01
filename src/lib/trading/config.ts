@@ -5,11 +5,14 @@ export const angelOneConfig = {
   // API Key from Angel One SmartAPI portal
   apiKey: 'Wb15v0Wq',
   
+  // Secret key for TOTP generation (optional - for programmatic trading)
+  secretKey: '085beeda-13c1-4433-bced-ba0b3db4ee32',
+  
   // Your Angel One client ID (username)
-  username: 'A490107',
+  username: 'YOUR_CLIENT_ID',
   
   // Your Angel One account password
-  password: '1714',
+  password: 'YOUR_PASSWORD',
   
   // TOTP from authenticator app (Google Auth/Authy)
   totp: '530971', // 6-digit code from Google Authenticator
