@@ -5,9 +5,12 @@ import { BankNiftyQuote, Trade, Position, TradingSignal, PortfolioSummary } from
 import { getBankNiftyQuote, getOptionChain } from '@/lib/trading/banknifty-data';
 import { StrategyEngine } from '@/lib/trading/strategy-engine';
 import { OrderManager } from '@/lib/trading/order-manager';
+import { AngelOneAPI } from '@/lib/trading/angel-one-api';
+import { angelOneConfig } from '@/lib/trading/config';
 
 const strategyEngine = new StrategyEngine();
 const orderManager = new OrderManager();
+const angelOneAPI = new AngelOneAPI();
 
 type Tab = 'overview' | 'trade' | 'positions' | 'signals' | 'options';
 
@@ -23,9 +26,58 @@ export default function TradingDashboard() {
   const [orderQuantity, setOrderQuantity] = useState(25);
   const [isAutoTrading, setIsAutoTrading] = useState(false);
   const [priceHistory, setPriceHistory] = useState<number[]>([]);
+  const [useLiveData, setUseLiveData] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  const refreshData = useCallback(() => {
-    const newQuote = getBankNiftyQuote();
+  // Connect to Angel One API
+  const connectToAngelOne = useCallback(async () => {
+    setAuthError(null);
+    
+    if (angelOneConfig.apiKey === 'YOUR_API_KEY_HERE') {
+      setAuthError('Please configure your API credentials in src/lib/trading/config.ts');
+      return;
+    }
+
+    try {
+      angelOneAPI.configure(angelOneConfig);
+      const session = await angelOneAPI.generateSession();
+      
+      if (session) {
+        setIsAuthenticated(true);
+        setUseLiveData(true);
+      } else {
+        setAuthError('Failed to authenticate with Angel One. Check your credentials.');
+      }
+    } catch (error: any) {
+      setAuthError(error.message || 'Authentication failed');
+    }
+  }, []);
+
+  // Disconnect from Angel One
+  const disconnectFromAngelOne = useCallback(async () => {
+    await angelOneAPI.logout();
+    setIsAuthenticated(false);
+    setUseLiveData(false);
+  }, []);
+
+  const refreshData = useCallback(async () => {
+    let newQuote: BankNiftyQuote;
+    
+    if (useLiveData && isAuthenticated) {
+      // Get live data from Angel One API
+      const liveQuote = await angelOneAPI.getQuote('BANKNIFTY');
+      if (liveQuote) {
+        newQuote = liveQuote;
+      } else {
+        // Fallback to simulated data if API fails
+        newQuote = getBankNiftyQuote();
+      }
+    } else {
+      // Use simulated data
+      newQuote = getBankNiftyQuote();
+    }
+    
     setQuote(newQuote);
     setOptionChain(getOptionChain());
 
@@ -41,7 +93,7 @@ export default function TradingDashboard() {
     setPositions(orderManager.getPositions());
     setTrades(orderManager.getTrades());
     setSignals(strategyEngine.getSignals());
-  }, []);
+  }, [useLiveData, isAuthenticated]);
 
   // Initial data load - using useLayoutEffect for immediate sync update
   useEffect(() => {
@@ -77,19 +129,77 @@ export default function TradingDashboard() {
     }
   }, [isAutoTrading, quote, orderQuantity, refreshData]);
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (!quote) return;
 
-    const order = orderManager.placeOrder('BANKNIFTY', orderType, orderQuantity, quote.lastPrice, 'Manual');
-    orderManager.executeOrder(order.id);
-    refreshData();
+    if (useLiveData && isAuthenticated) {
+      // Place order via Angel One API
+      const order = await angelOneAPI.placeOrder(
+        'BANKNIFTY',
+        orderType,
+        orderQuantity,
+        'INTRADAY',
+        'MARKET',
+        quote.lastPrice
+      );
+      
+      if (order) {
+        alert(`Order placed successfully! Order ID: ${order.id}`);
+        refreshData();
+      } else {
+        alert('Failed to place order');
+      }
+    } else {
+      // Demo mode - use local order manager
+      const order = orderManager.placeOrder('BANKNIFTY', orderType, orderQuantity, quote.lastPrice, 'Manual');
+      orderManager.executeOrder(order.id);
+      refreshData();
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-emerald-400">🇮🇳 BankNifty Trading Agent</h1>
-        <p className="text-gray-400 mt-2">Automated trading with multi-strategy analysis</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-emerald-400">🇮🇳 BankNifty Trading Agent</h1>
+            <p className="text-gray-400 mt-2">Automated trading with multi-strategy analysis</p>
+          </div>
+          
+          {/* Angel One Connection Status */}
+          <div className="flex items-center gap-4">
+            {useLiveData ? (
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                <span className="text-green-400 text-sm">🟢 Live - Angel One Connected</span>
+                <button
+                  onClick={disconnectFromAngelOne}
+                  className="px-3 py-1 bg-red-600 hover:bg-red-500 rounded text-sm"
+                >
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 bg-yellow-500 rounded-full"></span>
+                <span className="text-yellow-400 text-sm">🟡 Demo Mode</span>
+                <button
+                  onClick={connectToAngelOne}
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm"
+                >
+                  Connect Angel One
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Auth Error Message */}
+        {authError && (
+          <div className="mt-4 p-3 bg-red-900/50 border border-red-700 rounded text-red-300 text-sm">
+            ⚠️ {authError}
+          </div>
+        )}
       </header>
 
       {/* Quick Stats */}
